@@ -1,0 +1,33 @@
+# ── Quant-Core AI — Python Dependencies ───────────────────────────────────────
+# Install everything upfront so you never hit import errors mid-phase.
+#
+# Minimum for Phase 1:
+#   pip install discord.py python-dotenv
+#
+# Full install (recommended):
+#   pip install -r requirements.txt
+
+# ── Core ───────────────────────────────────────────────────────────────────────
+discord.py>=2.3.2
+python-dotenv>=1.0.0
+
+# ── Market Data & Indicators (Phase 2-3) ──────────────────────────────────────
+yfinance>=0.2.40
+pandas>=2.1.0
+pandas-ta>=0.3.14b
+numpy>=1.26.0
+
+# ── Charting (Phase 3) ────────────────────────────────────────────────────────
+matplotlib>=3.8.0
+mplfinance>=0.12.10b0
+
+# ── LLM SDKs (Phase 4) — install only the one you use ────────────────────────
+openai>=1.30.0
+anthropic>=0.28.0
+# google-generativeai>=0.5.0   # uncomment if using Gemini
+
+# ── HTTP (async news fetching, Phase 7) ───────────────────────────────────────
+aiohttp>=3.9.0
+
+# ── Database (Phase 5+) ───────────────────────────────────────────────────────
+# SQLite is built into Python's stdlib — no extra install needed.

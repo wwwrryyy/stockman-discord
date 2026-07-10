@@ -7,6 +7,8 @@ and SMA overlays. Uses mplfinance and outputs to an in-memory buffer.
 
 import io
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')
 import mplfinance as mpf
 
 def generate_candlestick_chart(df: pd.DataFrame, ticker: str) -> io.BytesIO:

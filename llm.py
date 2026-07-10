@@ -87,7 +87,7 @@ Response:"""
                 return "HOLD", "⚠️ **Awaiting OpenAI API Key Configuration** — Please set `OPENAI_API_KEY` in your `.env` file."
             
             from openai import OpenAI
-            client = OpenAI(api_key=api_key)
+            client = OpenAI(api_key=api_key, timeout=15.0)
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
@@ -109,7 +109,8 @@ Response:"""
             from openai import OpenAI
             client = OpenAI(
                 api_key=api_key,
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                timeout=15.0
             )
             response = client.chat.completions.create(
                 model="gemini-1.5-flash",
@@ -129,7 +130,7 @@ Response:"""
                 return "HOLD", "⚠️ **Awaiting Anthropic API Key Configuration** — Please set `ANTHROPIC_API_KEY` in your `.env` file."
             
             from anthropic import Anthropic
-            client = Anthropic(api_key=api_key)
+            client = Anthropic(api_key=api_key, timeout=15.0)
             response = client.messages.create(
                 model="claude-3-haiku-20240307",
                 max_tokens=250,
@@ -161,4 +162,6 @@ Response:"""
             return "HOLD", f"❌ **Error:** Failed to parse JSON from LLM response. Raw output:\n```\n{raw_text[:200]}\n```"
             
     except Exception as e:
-        return "HOLD", f"❌ **Error invoking LLM ({provider}):** `{str(e)}`"
+        import traceback
+        traceback.print_exc()
+        return "HOLD", f"❌ **Error invoking LLM ({provider}).** Please check the bot logs for details."

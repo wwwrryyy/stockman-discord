@@ -22,6 +22,7 @@ Requirements:
 
 import asyncio
 import os
+import re
 from datetime import datetime, timezone
 
 import discord
@@ -55,17 +56,17 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 watchlist_group = app_commands.Group(name="watchlist", description="Manage your stock watchlist")
 
 @watchlist_group.command(name="add", description="Add a stock to your watchlist")
-@app_commands.describe(ticker="The stock ticker symbol to add (e.g. AAPL, TSLA)")
+@app_commands.describe(ticker="The stock ticker symbol to add (e.g. AAPL, TSLA, BRK.B)")
 async def watchlist_add(interaction: discord.Interaction, ticker: str):
     ticker = ticker.upper().strip()
-    if not ticker.isalnum() or len(ticker) > 10:
+    if not re.fullmatch(r"[A-Z0-9.\-]{1,10}", ticker):
         await interaction.response.send_message(
             f"❌ `{ticker}` does not look like a valid stock ticker.",
             ephemeral=True
         )
         return
         
-    success = add_to_watchlist(interaction.user.id, ticker)
+    success = await asyncio.to_thread(add_to_watchlist, interaction.user.id, ticker)
     if success:
         await interaction.response.send_message(
             f"✅ Added `{ticker}` to your watchlist.",
@@ -81,7 +82,7 @@ async def watchlist_add(interaction: discord.Interaction, ticker: str):
 @app_commands.describe(ticker="The stock ticker symbol to remove")
 async def watchlist_remove(interaction: discord.Interaction, ticker: str):
     ticker = ticker.upper().strip()
-    success = remove_from_watchlist(interaction.user.id, ticker)
+    success = await asyncio.to_thread(remove_from_watchlist, interaction.user.id, ticker)
     if success:
         await interaction.response.send_message(
             f"✅ Removed `{ticker}` from your watchlist.",
@@ -95,7 +96,7 @@ async def watchlist_remove(interaction: discord.Interaction, ticker: str):
 
 @watchlist_group.command(name="list", description="View all stocks in your watchlist")
 async def watchlist_list(interaction: discord.Interaction):
-    tickers = get_watchlist(interaction.user.id)
+    tickers = await asyncio.to_thread(get_watchlist, interaction.user.id)
     if not tickers:
         await interaction.response.send_message(
             "ℹ️ Your watchlist is currently empty. Add stocks using `/watchlist add <ticker>`.",
@@ -212,7 +213,10 @@ def _build_data_embed(data: AnalysisData) -> discord.Embed:
 
     # ── Colour & Verdict Emoji: driven by LLM verdict ─────────────────────────
     verdict = data.llm_verdict or "HOLD"
-    rationale = data.llm_rationale or "*No analysis provided.*"
+    raw_rationale = data.llm_rationale or "*No analysis provided.*"
+    
+    # Truncate rationale to fit Discord embed description limits safely
+    rationale = (raw_rationale[:900] + "...") if len(raw_rationale) > 900 else raw_rationale
     
     if verdict == "BUY":
         colour = discord.Colour.green()

@@ -17,20 +17,23 @@ def get_connection() -> sqlite3.Connection:
 
 def init_db() -> None:
     """Initializes the database schema if tables do not exist."""
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        # Create watchlist table: user_id (Discord User ID) and ticker (Stock Symbol)
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS watchlist (
-                user_id TEXT NOT NULL,
-                ticker TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (user_id, ticker)
+    conn = get_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+            # Create watchlist table: user_id (Discord User ID) and ticker (Stock Symbol)
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS watchlist (
+                    user_id TEXT NOT NULL,
+                    ticker TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, ticker)
+                )
+                """
             )
-            """
-        )
-        conn.commit()
+    finally:
+        conn.close()
 
 def add_to_watchlist(user_id: int, ticker: str) -> bool:
     """
@@ -40,18 +43,20 @@ def add_to_watchlist(user_id: int, ticker: str) -> bool:
     """
     ticker = ticker.upper().strip()
     user_id_str = str(user_id)
+    conn = get_connection()
     try:
-        with get_connection() as conn:
+        with conn:
             cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO watchlist (user_id, ticker) VALUES (?, ?)",
                 (user_id_str, ticker)
             )
-            conn.commit()
             return True
     except sqlite3.IntegrityError:
         # Ticker already exists in user's watchlist due to PRIMARY KEY constraint
         return False
+    finally:
+        conn.close()
 
 def remove_from_watchlist(user_id: int, ticker: str) -> bool:
     """
@@ -61,15 +66,18 @@ def remove_from_watchlist(user_id: int, ticker: str) -> bool:
     """
     ticker = ticker.upper().strip()
     user_id_str = str(user_id)
-    with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "DELETE FROM watchlist WHERE user_id = ? AND ticker = ?",
-            (user_id_str, ticker)
-        )
-        conn.commit()
-        # If any rows were affected, the delete was successful
-        return cursor.rowcount > 0
+    conn = get_connection()
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "DELETE FROM watchlist WHERE user_id = ? AND ticker = ?",
+                (user_id_str, ticker)
+            )
+            # If any rows were affected, the delete was successful
+            return cursor.rowcount > 0
+    finally:
+        conn.close()
 
 def get_watchlist(user_id: int) -> List[str]:
     """
@@ -78,7 +86,8 @@ def get_watchlist(user_id: int) -> List[str]:
         List[str]: List of stock tickers.
     """
     user_id_str = str(user_id)
-    with get_connection() as conn:
+    conn = get_connection()
+    try:
         cursor = conn.cursor()
         cursor.execute(
             "SELECT ticker FROM watchlist WHERE user_id = ? ORDER BY ticker ASC",
@@ -86,3 +95,5 @@ def get_watchlist(user_id: int) -> List[str]:
         )
         rows = cursor.fetchall()
         return [row[0] for row in rows]
+    finally:
+        conn.close()

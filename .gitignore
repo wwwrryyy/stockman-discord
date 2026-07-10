@@ -4,3 +4,4 @@ token.txt
 venv/
 __pycache__/
 *.pyc
+quant_core.db

@@ -32,6 +32,7 @@ from dotenv import load_dotenv
 from data import AnalysisData, fetch_analysis_data
 from chart import generate_candlestick_chart
 from llm import get_llm_verdict
+from db import add_to_watchlist, remove_from_watchlist, get_watchlist
 
 # ── Load environment variables from .env ──────────────────────────────────────
 load_dotenv()
@@ -49,6 +50,69 @@ intents.message_content = True
 
 # ── Bot ───────────────────────────────────────────────────────────────────────
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+# ── Watchlist Command Group (Phase 5) ──────────────────────────────────────────
+watchlist_group = app_commands.Group(name="watchlist", description="Manage your stock watchlist")
+
+@watchlist_group.command(name="add", description="Add a stock to your watchlist")
+@app_commands.describe(ticker="The stock ticker symbol to add (e.g. AAPL, TSLA)")
+async def watchlist_add(interaction: discord.Interaction, ticker: str):
+    ticker = ticker.upper().strip()
+    if not ticker.isalnum() or len(ticker) > 10:
+        await interaction.response.send_message(
+            f"❌ `{ticker}` does not look like a valid stock ticker.",
+            ephemeral=True
+        )
+        return
+        
+    success = add_to_watchlist(interaction.user.id, ticker)
+    if success:
+        await interaction.response.send_message(
+            f"✅ Added `{ticker}` to your watchlist.",
+            ephemeral=True
+        )
+    else:
+        await interaction.response.send_message(
+            f"ℹ️ `{ticker}` is already in your watchlist.",
+            ephemeral=True
+        )
+
+@watchlist_group.command(name="remove", description="Remove a stock from your watchlist")
+@app_commands.describe(ticker="The stock ticker symbol to remove")
+async def watchlist_remove(interaction: discord.Interaction, ticker: str):
+    ticker = ticker.upper().strip()
+    success = remove_from_watchlist(interaction.user.id, ticker)
+    if success:
+        await interaction.response.send_message(
+            f"✅ Removed `{ticker}` from your watchlist.",
+            ephemeral=True
+        )
+    else:
+        await interaction.response.send_message(
+            f"❌ `{ticker}` was not in your watchlist.",
+            ephemeral=True
+        )
+
+@watchlist_group.command(name="list", description="View all stocks in your watchlist")
+async def watchlist_list(interaction: discord.Interaction):
+    tickers = get_watchlist(interaction.user.id)
+    if not tickers:
+        await interaction.response.send_message(
+            "ℹ️ Your watchlist is currently empty. Add stocks using `/watchlist add <ticker>`.",
+            ephemeral=True
+        )
+        return
+        
+    embed = discord.Embed(
+        title="📋 Your Watchlist",
+        description="\n".join(f"• **{t}**" for t in tickers),
+        color=discord.Color.blue()
+    )
+    embed.set_footer(text=f"Total: {len(tickers)} stocks")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# Register the watchlist command group to the bot's command tree
+bot.tree.add_command(watchlist_group)
 
 
 # ── Events ────────────────────────────────────────────────────────────────────
@@ -251,4 +315,8 @@ def _rsi_bar(rsi: float | None) -> str:
 
 # ── Entry Point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    from db import init_db
+    print("Initializing SQLite Database...")
+    init_db()
+    print("Database initialized. Starting bot...")
     bot.run(TOKEN)

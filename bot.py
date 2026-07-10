@@ -31,6 +31,7 @@ from dotenv import load_dotenv
 
 from data import AnalysisData, fetch_analysis_data
 from chart import generate_candlestick_chart
+from llm import get_llm_verdict
 
 # ── Load environment variables from .env ──────────────────────────────────────
 load_dotenv()
@@ -107,6 +108,27 @@ async def analyze(interaction: discord.Interaction, ticker: str):
     chart_buf = await asyncio.to_thread(generate_candlestick_chart, data.df, ticker)
     chart_file = discord.File(chart_buf, filename="chart.png")
 
+    # ── Call LLM Verdict Engine ──────────────────────────────────────────────
+    verdict, rationale = await asyncio.to_thread(
+        get_llm_verdict,
+        ticker=ticker,
+        current_price=data.current_price,
+        price_change_pct=data.price_change_pct,
+        rsi=data.rsi,
+        sma_50=data.sma_50,
+        sma_200=data.sma_200,
+        macd=data.macd,
+        macd_signal=data.macd_signal,
+        pe_ratio=data.pe_ratio,
+        market_cap=data.market_cap,
+        sector=data.sector,
+        industry=data.industry,
+        signal_tags=data.signal_tags,
+        signal_summary=data.signal_summary
+    )
+    data.llm_verdict = verdict
+    data.llm_rationale = rationale
+
     # ── Build the Discord Embed ───────────────────────────────────────────────
     embed = _build_data_embed(data)
     embed.set_image(url="attachment://chart.png")
@@ -124,16 +146,19 @@ def _build_data_embed(data: AnalysisData) -> discord.Embed:
     built now so those phases only ADD content, not restructure the embed.
     """
 
-    # ── Colour: driven by composite signal tags ───────────────────────────────
-    if "COMPOSITE_BUY_SIGNAL" in data.signal_tags:
+    # ── Colour & Verdict Emoji: driven by LLM verdict ─────────────────────────
+    verdict = data.llm_verdict or "HOLD"
+    rationale = data.llm_rationale or "*No analysis provided.*"
+    
+    if verdict == "BUY":
         colour = discord.Colour.green()
-        verdict_placeholder = "🟢 Likely **BUY** — awaiting LLM verdict (Phase 4)"
-    elif "COMPOSITE_SELL_SIGNAL" in data.signal_tags:
+        emoji = "🟢"
+    elif verdict == "SELL":
         colour = discord.Colour.red()
-        verdict_placeholder = "🔴 Likely **SELL** — awaiting LLM verdict (Phase 4)"
+        emoji = "🔴"
     else:
         colour = discord.Colour.yellow()
-        verdict_placeholder = "🟡 Likely **HOLD** — awaiting LLM verdict (Phase 4)"
+        emoji = "🟡"
 
     # ── Price change formatting ───────────────────────────────────────────────
     pct   = data.price_change_pct
@@ -147,7 +172,8 @@ def _build_data_embed(data: AnalysisData) -> discord.Embed:
         description=(
             f"**{name}**\n"
             f"Current Price: **${data.current_price:,.2f}** ({pct_str} vs prev close)\n\n"
-            f"{verdict_placeholder}"
+            f"**LLM Verdict:** {emoji} **{verdict}**\n"
+            f"{rationale}"
         ),
         colour=colour,
         timestamp=datetime.now(tz=timezone.utc),

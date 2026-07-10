@@ -62,6 +62,10 @@ class AnalysisData:
     signal_tags: list[str] = field(default_factory=list)
     signal_summary: str = ""
 
+    # LLM Verdict & Rationale (Phase 4)
+    llm_verdict: Optional[str] = None
+    llm_rationale: Optional[str] = None
+
     # Raw DataFrame (needed by chart.py in Phase 3)
     df: Optional[pd.DataFrame] = None
 

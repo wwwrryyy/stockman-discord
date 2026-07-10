@@ -30,6 +30,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 from data import AnalysisData, fetch_analysis_data
+from chart import generate_candlestick_chart
 
 # ── Load environment variables from .env ──────────────────────────────────────
 load_dotenv()
@@ -102,10 +103,15 @@ async def analyze(interaction: discord.Interaction, ticker: str):
         )
         return
 
+    # ── Generate chart ────────────────────────────────────────────────────────
+    chart_buf = await asyncio.to_thread(generate_candlestick_chart, data.df, ticker)
+    chart_file = discord.File(chart_buf, filename="chart.png")
+
     # ── Build the Discord Embed ───────────────────────────────────────────────
     embed = _build_data_embed(data)
+    embed.set_image(url="attachment://chart.png")
 
-    await interaction.followup.send(embed=embed)
+    await interaction.followup.send(embed=embed, file=chart_file)
 
 
 # ── Embed Builder ─────────────────────────────────────────────────────────────
@@ -196,12 +202,7 @@ def _build_data_embed(data: AnalysisData) -> discord.Embed:
         inline=False,
     )
 
-    # ── Field 5: Chart placeholder (Phase 3 will attach the real image) ───────
-    embed.add_field(
-        name="📉 Chart",
-        value="*Candlestick chart will be attached in Phase 3.*",
-        inline=False,
-    )
+    # The real chart image is now attached to the embed via embed.set_image()
 
     embed.set_footer(text="Quant-Core AI  •  Data: Yahoo Finance  •  Phase 2")
     return embed
